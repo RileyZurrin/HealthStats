@@ -5,7 +5,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import ast
-import logging
 
 # Page config
 st.set_page_config(
@@ -96,7 +95,7 @@ def main():
                     try:
                         enc_count[v] = (df[var] == k).sum()
                     except:
-                        logging.info(f'{k} was skipped because it is not a numerical code')
+                        pass
                 return not_encoded, enc_count
             except:
                 return df[var], {}
