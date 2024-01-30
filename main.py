@@ -9,7 +9,7 @@ import logging
 
 # Page config
 st.set_page_config(
-    page_title="Health & Nutrition Data Viz",
+    page_title="HealthStats",
     page_icon="🩸",
     layout="wide",
     menu_items={
