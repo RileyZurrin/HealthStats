@@ -5,7 +5,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import ast
-import scipy.stats as stats
+import scipy
 
 # Page config
 st.set_page_config(
@@ -359,7 +359,7 @@ def grab_stats(case, data1, data2):
             return "< .001"
     if case == 1:
         # Find Pearson correlation
-        corr, p = stats.pearsonr(data1, data2)
+        corr, p = scipy.stats.pearsonr(data1, data2)
         corr = '%.2f' % corr
         p = plabel(p)
         return corr, p
@@ -369,7 +369,7 @@ def grab_stats(case, data1, data2):
         if len(groups) > 1:
             for value, group in zip(data1, data2):
                 groups[group].append(value)
-            f_stat, p = stats.f_oneway(*groups.values())
+            f_stat, p = scipy.stats.f_oneway(*groups.values())
             f_stat = '%.2f' % f_stat
             p = plabel(p)
             return f_stat, p
@@ -378,7 +378,7 @@ def grab_stats(case, data1, data2):
         # Perform Chi-squared analysis
         contingency_table = pd.crosstab(data1, data2)
         if len(contingency_table) > 1:
-            chi2, p, dof, expected = stats.chi2_contingency(contingency_table)
+            chi2, p, dof, expected = scipy.stats.chi2_contingency(contingency_table)
             chi2 = '%.2f' % chi2
             p = plabel(p)
             return chi2, p

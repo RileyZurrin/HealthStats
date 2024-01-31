@@ -2,4 +2,4 @@ streamlit
 pandas
 numpy
 plotly
-scipy.stats
+scipy
