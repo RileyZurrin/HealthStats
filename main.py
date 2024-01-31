@@ -5,6 +5,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import ast
+import scipy.stats as stats
 
 # Page config
 st.set_page_config(
@@ -93,7 +94,9 @@ def main():
                 enc_count = {}
                 for k, v in encoding.items():
                     try:
-                        enc_count[v] = (df[var] == k).sum()
+                        s = (df[var] == k).sum()
+                        if s > 0:
+                            enc_count[v] = s
                     except:
                         pass
                 return not_encoded, enc_count
@@ -105,7 +108,7 @@ def main():
         st.title("Health and Nutritition Data Visualization")
         st.markdown("<h1 style='font-size: 25px; color: grey;'>Select variable(s)</h1>", unsafe_allow_html=True)
 
-        rand, col1, col2, col3 = st.columns([1, 10, 1, 10])
+        rand, col1, col2, col3, clear = st.columns([1, 7.5, 1, 7.5, 1])
         with rand:
             # Markdown for vertical alignment
             st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
@@ -138,7 +141,7 @@ def main():
                 if np.issubdtype(v1data.dtype, np.number):
                     nbins = optml_nbins(v1data)
                     fig1 = px.histogram(v1data, nbins=nbins, text_auto=True)
-                    if len(enc_count1) > 0 and sum(enc_count1.values()):
+                    if len(enc_count1) > 0:
                         fig2 = px.bar(x=enc_count1.keys(), y=enc_count1.values(), text_auto=True)
                         fig = make_subplots(rows=1, cols=2, subplot_titles=['Primary', 'Other'], column_widths=[nbins, 1], shared_yaxes=True)
                         fig.add_trace(fig1['data'][0], row=1, col=1)
@@ -171,6 +174,13 @@ def main():
             
             if v2:
                 v2, v2label, v2data, enc_count2 = grab_and_process(v2)
+                if st.session_state.v2index != None:
+                    with clear:
+                        # Markdown for vertical alignment
+                        st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
+                        if st.button("$\otimes$", help="Clear 2nd Variable"):
+                            st.session_state.v2index = None
+                            st.rerun()
 
                 # 4 cases generated via: v1, v2 in {categorical, numerical}
                 case = check_case(v1data, v2data)
@@ -179,87 +189,103 @@ def main():
                 v1data = df_combined[v1]
                 v2data = df_combined[v2]
 
+                
+
                 if len(df_combined) == 0:
+                    # Create row for buttons (only for aeshetics in this case)
+                    but = st.columns(1)
+                    show_empty = True
                     st.markdown("<h1 style='text-align: center; font-size: 25px; color: grey;'>Sadly, these two variables do not share any non-zero rows.</h1>", unsafe_allow_html=True)
                 else:
                     with col2:
                         # Markdown for vertical alignment
                         st.markdown("<div style='width: 1px; height: 28px'></div>", unsafe_allow_html=True)
-                        swap = st.button("$\leftrightarrow$")
+                        swap = st.button("$\leftrightarrow$", help="Swap Axes")
 
                     def case1(data1, data2, label1, label2):
-                        corr = '%.2f' % np.corrcoef(data1,data2)[0][1]
+                        corr, p = grab_stats(1, data1, data2)
                         # Create a Plotly scatterplot
-                        fig = px.scatter(x=data1, y=data2, labels={'x': label1, 'y': label2}, title=f'{label2} vs {label1} <br> Correlation = {corr}')
+                        fig = px.scatter(x=data1, y=data2, labels={'x': label1, 'y': label2}, title=f'{label2} vs {label1} <br> Correlation = {corr}, p {p}')
                         return fig
 
                     # Case 1: Both numerical
                     if case == 1:
+                        # Create row for buttons (only for aeshetics in this case)
+                        but = st.columns(1)
                         fig = case1(v1data, v2data, v1label, v2label)
 
 
                     # Case 2: v1 numerical, v2 categorical
-                    elif case == 2:
+                    # Case 3: v1 categorical, v2 numerical
+                    elif case in (2,3):
                         # Option A: bar graph with average of v1 for each cat in v2
-                        def plot_bar_chart(df, v1, v2, v2label, v1label):
+                        def plot_bar_chart(df, v1, v2, v2label, v1label, f, p):
                             cats = df.groupby(v2, sort=False).mean().index.tolist()
                             avgs = df.groupby(v2, sort=False).mean()[v1].values
-                            return px.bar(x=cats, y=avgs, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label}', text_auto='.2f')
-                        
+                            if case == 2:
+                                return px.bar(x=cats, y=avgs, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', text_auto='.2f')
+                            if case == 3:
+                                return px.bar(x=avgs, y=cats, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', text_auto='.2f')
                         # Option B: histogram of distribution of v1 for each cat in v2
-                        def plot_histogram(df, v1, v2, v2label, v1label):
-                            fig = px.histogram(df, x=v1, color=v2, title=f'Distribution of {v1label} by {v2label} <br> N = {v1data.count()}', 
-                                            barmode='overlay', opacity=0.4)
-                            fig.update_layout(xaxis_title_text=v1label)
+                        def plot_histogram(df, v1, v2, v2label, v1label, f, p):
+                            if case == 2:
+                                fig = px.histogram(df, x=v1, color=v2, title=f'Distribution of {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', 
+                                                barmode='overlay', opacity=0.4)
+                                fig.update_layout(xaxis_title_text=v1label, yaxis_title_text=f"Count of {v2label}")
+                            if case == 3:
+                                fig = px.histogram(df, y=v1, color=v2, title=f'Distribution of {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', 
+                                                barmode='overlay', opacity=0.4)
+                                fig.update_layout(yaxis_title_text=v1label, xaxis_title_text=f"Count of {v2label}")
                             return fig
 
                         # Option C: box plot of v1 for each cat in v2
-                        def plot_box_plot(v2data, v1data, v2label, v1label):
-                            return px.box(x=v2data, y=v1data, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label}')
+                        def plot_box_plot(v2data, v1data, v2label, v1label, f, p):
+                            if case == 2:
+                                return px.box(x=v2data, y=v1data, labels={'x': v2label, 'y': v1label}, title=f'Distribution of {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}')
+                            if case == 3:
+                                return px.box(y=v2data, x=v1data, labels={'x': v1label, 'y': v2label}, title=f'Distribution of {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}')
 
                         # Create columns for buttons
-                        but1, but2, but3, _ = st.columns([1, 1, 1, 7])
+                        but1, but2, but3, _ = st.columns([1, 1, 1, 6])
 
-                        def case2(df, v1, v2, v1data, v2data, v2label, v1label):
+                        def cases_2and3(df, v1, v2, v1data, v2data, v2label, v1label):
+                            # Get stat
+                            f_stat, p = grab_stats(case, v1data, v2data)
                             # Default to option A
-                            fig = plot_bar_chart(df, v1, v2, v2label, v1label)
+                            fig = plot_bar_chart(df, v1, v2, v2label, v1label, f_stat, p)
                             if but1.button('Bar Chart'):
-                                fig = plot_bar_chart(df, v1, v2, v2label, v1label)
+                                fig = plot_bar_chart(df, v1, v2, v2label, v1label, f_stat, p)
                             # Allow option B iff 2 variables in categorical data
                             if v2data.nunique() == 2:
                                 if but3.button("Histogram"):
-                                    fig = plot_histogram(df, v1, v2, v2label, v1label)
+                                    fig = plot_histogram(df, v1, v2, v2label, v1label, f_stat, p)
                             # In any case, display box plot option (option C)
                             if but2.button('Box Plot'):
-                                fig = plot_box_plot(v2data, v1data, v2label, v1label)
+                                fig = plot_box_plot(v2data, v1data, v2label, v1label, f_stat, p)
                             return fig
                         
-                        fig = case2(df_combined, v1, v2, v1data, v2data, v2label, v1label)
-
-                        
-                    
-                    # Case 3: v1 categorical, v2 numerical
-                    elif case == 3:
-                        fig = px.histogram(x=v2data, color=v1data, title=f'Distribution of {v2label} by {v1label} <br> N = {len(df_combined)}', 
-                                            barmode='overlay', opacity=0.3)
-                        fig.update_layout(xaxis_title_text=v2label, yaxis_title_text=f'count of {v1label}')
+                        if case == 2:
+                            fig = cases_2and3(df_combined, v1, v2, v1data, v2data, v2label, v1label)
+                        if case == 3:
+                            fig = cases_2and3(df_combined, v2, v1, v2data, v1data, v1label, v2label)
 
                     # Case 4: Both categorical
                     elif case == 4:
-                        col1, col2, _ = st.columns([1, 1, 4])
+                        but1, but2, _ = st.columns([1, 1, 4])
+                        chi2, p = grab_stats(case, v1data, v2data)
                         # Option 4A: Clustered Bar Chart
                         fig = px.histogram(df_combined, x=v1, color=v2, barmode='group', text_auto=True)
                         # Option 4B: Stacked Bar Chart
-                        if col1.button("Clustered Bar Chart"):
+                        if but1.button("Clustered Bar Chart"):
                             fig = px.histogram(df_combined, x=v1, color=v2, barmode='group', text_auto=True)
-                        if col2.button("Stacked Bar Chart"):
+                        if but2.button("Stacked Bar Chart"):
                             try:
                                 grouped_df = df_combined.groupby([v1, v2]).size().reset_index(name='Count')
                             except:
                                 grouped_df = df_combined.groupby([v1]).size().reset_index(name='Count')
                             fig = px.bar(grouped_df, x=v1, y="Count", color=v2, text = "Count")
-                        fig.update_layout(xaxis_title_text=v1label, yaxis_title_text=f'count of {v2label}',
-                            title=f'Distribution of {v2label} by {v1label} <br> N = {v2data.count()}')
+                        fig.update_layout(xaxis_title_text=v1label, yaxis_title_text=f'Count of {v2label}',
+                            title=f'Distribution of {v2label} by {v1label} <br> N = {v2data.count()}, chi-squared = {chi2}, p {p}')
                     
 
                     # Display the Plotly figure in Streamlit
@@ -324,6 +350,41 @@ def check_case(data1, data2):
         return 3
     if pd.api.types.is_string_dtype(data1) and pd.api.types.is_string_dtype(data2):
         return 4
+    
+def grab_stats(case, data1, data2):
+    def plabel(p):
+        if p >= .001:
+            return "= " + '%.3f' % p
+        else:
+            return "< .001"
+    if case == 1:
+        # Find Pearson correlation
+        corr, p = stats.pearsonr(data1, data2)
+        corr = '%.2f' % corr
+        p = plabel(p)
+        return corr, p
+    if case in (2,3):
+        # Perform one-way ANOVA
+        groups = {group: [] for group in set(data2)}
+        if len(groups) > 1:
+            for value, group in zip(data1, data2):
+                groups[group].append(value)
+            f_stat, p = stats.f_oneway(*groups.values())
+            f_stat = '%.2f' % f_stat
+            p = plabel(p)
+            return f_stat, p
+        return "n/a", "n/a"
+    if case == 4:
+        # Perform Chi-squared analysis
+        contingency_table = pd.crosstab(data1, data2)
+        if len(contingency_table) > 1:
+            chi2, p, dof, expected = stats.chi2_contingency(contingency_table)
+            chi2 = '%.2f' % chi2
+            p = plabel(p)
+            return chi2, p
+        return "n/a", "= n/a"
+
+        
 
 
 
