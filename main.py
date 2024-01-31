@@ -102,7 +102,7 @@ def main():
 
         labels = df_desc["Label"]     
         # Generate streamlit features
-        st.markdown("<h1 style='text-align: center; font-size: 40px; color: black;'>Health and Nutritition Data Visualization</h1>", unsafe_allow_html=True)
+        st.title("Health and Nutritition Data Visualization")
         st.markdown("<h1 style='font-size: 25px; color: grey;'>Select variable(s)</h1>", unsafe_allow_html=True)
 
         rand, col1, col2, col3 = st.columns([1, 10, 1, 10])
