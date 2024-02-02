@@ -225,7 +225,7 @@ def main():
                             if case == 2:
                                 return px.bar(x=cats, y=avgs, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', text_auto='.2f')
                             if case == 3:
-                                return px.bar(x=avgs, y=cats, labels={'x': v2label, 'y': v1label}, title=f'Average {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', text_auto='.2f')
+                                return px.bar(x=avgs, y=cats, labels={'x': v1label, 'y': v2label}, title=f'Average {v1label} by {v2label} <br> N = {v1data.count()}, F = {f}, p {p}', text_auto='.2f')
                         # Option B: histogram of distribution of v1 for each cat in v2
                         def plot_histogram(df, v1, v2, v2label, v1label, f, p):
                             if case == 2:
