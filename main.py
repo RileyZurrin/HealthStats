@@ -137,28 +137,36 @@ def main():
                 v2 = st.selectbox('Variable 2',labels, index=st.session_state.v2index)
 
             if not v2:
-                # Create bins if data is numerical
-                if np.issubdtype(v1data.dtype, np.number):
-                    nbins = optml_nbins(v1data)
-                    fig1 = px.histogram(v1data, nbins=nbins, text_auto=True)
-                    if len(enc_count1) > 0:
-                        fig2 = px.bar(x=enc_count1.keys(), y=enc_count1.values(), text_auto=True)
-                        fig = make_subplots(rows=1, cols=2, subplot_titles=['Primary', 'Other'], column_widths=[nbins, 1], shared_yaxes=True)
-                        fig.add_trace(fig1['data'][0], row=1, col=1)
-                        fig.add_trace(fig2['data'][0], row=1, col=2)
+                def plot_histogram(v1data, v1label, enc_count1):
+                    # Create bins if data is numerical
+                    if np.issubdtype(v1data.dtype, np.number):
+                        nbins = optml_nbins(v1data)
+                        fig1 = px.histogram(v1data, nbins=nbins, text_auto=True)
+                        if len(enc_count1) > 0:
+                            fig2 = px.bar(x=enc_count1.keys(), y=enc_count1.values(), text_auto=True)
+                            fig = make_subplots(rows=1, cols=2, subplot_titles=['Primary', 'Other'], column_widths=[nbins, 1], shared_yaxes=True)
+                            fig.add_trace(fig1['data'][0], row=1, col=1)
+                            fig.add_trace(fig2['data'][0], row=1, col=2)
+                        else:
+                            fig = fig1
+                        avg = "%.2f" % np.mean(v1data)
+                        std = "%.2f" % np.std(v1data)
+                        fig.update_layout(xaxis_title=v1label, title_text=f'Distribution of {v1label} <br> N = {v1data.count()}, Average = {avg}, Standard Deviation = {std}')
+                    # Otherwise, just plot categorical data
                     else:
-                        fig = fig1
-                    avg = "%.2f" % np.mean(v1data)
-                    std = "%.2f" % np.std(v1data)
-                    fig.update_layout(xaxis_title=v1label, title_text=f'Distribution of {v1label} <br> N = {v1data.count()}, Average = {avg}, Standard Deviation = {std}')
-                # Otherwise, just plot categorical data
-                else:
-                    fig = px.histogram(v1data, title=f'Distribution of {v1label} <br> N = {v1data.count()}',)
-                    fig.update_layout(xaxis_title=v1label)
+                        fig = px.histogram(v1data, title=f'Distribution of {v1label} <br> N = {v1data.count()}',)
+                        fig.update_layout(xaxis_title=v1label)
+                    return fig
                 
-                pieoption, _ = st.columns([1, 6])
+                fig = plot_histogram(v1data, v1label, enc_count1)
+                
+                hist_option, pie_option, _ = st.columns([2,1, 6])
+                # histogram / bar chart option
+                with hist_option:
+                    if st.button("Histogram / Bar Chart"):
+                        fig = plot_histogram(v1data, v1label, enc_count1)
                 # Pie chart option
-                with pieoption:
+                with pie_option:
                     if st.button("Pie Chart"):
                         fig = px.pie(v1data, names = v1data, title=f'Distribution of {v1label}')
                         fig.update_traces(textinfo='value+percent')
